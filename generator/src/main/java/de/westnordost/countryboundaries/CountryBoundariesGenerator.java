@@ -1,27 +1,26 @@
 package de.westnordost.countryboundaries;
 
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.IntersectionMatrix;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.MultiPolygon;
-import com.vividsolutions.jts.geom.Polygon;
-import com.vividsolutions.jts.geom.Polygonal;
-import com.vividsolutions.jts.geom.PrecisionModel;
+import com.vividsolutions.jts.geom.*;
 import com.vividsolutions.jts.index.strtree.STRtree;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 public class CountryBoundariesGenerator
 {
 	private static final int WGS84 = 4326;
-	private final GeometryFactory factory = new GeometryFactory(new PrecisionModel(), WGS84);
 
+	private final boolean parallel;
+	private final GeometryFactory factory = new GeometryFactory(new PrecisionModel(), WGS84);
 	private ProgressListener listener;
+
+	public CountryBoundariesGenerator(boolean parallel) {
+		this.parallel = parallel;
+	}
 
 	public interface ProgressListener
 	{
@@ -38,7 +37,32 @@ public class CountryBoundariesGenerator
 		Map<String, Double> geometrySizes = calculateGeometryAreas(boundaries);
 
 		STRtree index = buildIndex(boundaries);
+		CountryBoundariesCell[] raster = parallel
+				? getCountryBoundariesCellsParallel(width, height, index)
+				: getCountryBoundariesCellsSequential(width, height, index);
+		if (listener != null) listener.onProgress(1);
 
+		return new CountryBoundaries(raster, width, geometrySizes);
+	}
+
+	private CountryBoundariesCell[] getCountryBoundariesCellsParallel(int width, int height, STRtree index) {
+		AtomicInteger counter = new AtomicInteger(0);
+		int maxValue = width * height;
+		return Stream.iterate(0, y -> y + 1).limit(height)
+		.flatMap(y -> Stream.iterate(0, x -> x + 1).limit(width).map(x -> new Point(x, y)))
+		.parallel()
+		.map(p -> {
+			CountryBoundariesCell cell = getCountryBoundariesCell(width, height, index, p);
+			if (listener != null) {
+				int currentCounterValue = counter.incrementAndGet();
+				listener.onProgress((float)(currentCounterValue)/(maxValue));
+			}
+			return cell;
+		})
+		.toArray(CountryBoundariesCell[]::new);
+	}
+
+	private CountryBoundariesCell[] getCountryBoundariesCellsSequential(int width, int height, STRtree index) {
 		CountryBoundariesCell[] raster = new CountryBoundariesCell[width * height];
 
 		for (int y = 0; y < height; ++y)
@@ -52,12 +76,18 @@ public class CountryBoundariesGenerator
 
 				raster[x + y * width] = createCell(index, lonMin, latMin, lonMax, latMax);
 
-				if(listener != null) listener.onProgress((float)(y*width+x)/(width*height));
+				if (listener != null) listener.onProgress((float)(y*width+x)/(width*height));
 			}
 		}
-		if(listener != null) listener.onProgress(1);
+		return raster;
+	}
 
-		return new CountryBoundaries(raster, width, geometrySizes);
+	private CountryBoundariesCell getCountryBoundariesCell(int width, int height, STRtree index, Point p) {
+		double lonMin = -180.0 + 360.0 * p.x / width;
+		double latMax = +90.0 - 180.0 * p.y / height;
+		double lonMax = -180.0 + 360.0 * (p.x + 1) / width;
+		double latMin = +90.0 - 180.0 * (p.y + 1) / height;
+		return createCell(index, lonMin, latMin, lonMax, latMax);
 	}
 
 	private CountryBoundariesCell createCell(

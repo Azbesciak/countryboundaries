@@ -27,6 +27,11 @@ public class Main
 		String filename = args[0];
 		int width = Integer.parseInt(args[1]);
 		int height = Integer.parseInt(args[2]);
+		boolean parallel = false;
+		if (args.length > 3) {
+			String candidate = args[3];
+			parallel = candidate.equals("-p") || candidate.equals("--parallel");
+		}
 
 		FileInputStream is = new FileInputStream(filename);
 
@@ -75,7 +80,7 @@ public class Main
 
 		System.out.println("Generating index...");
 
-		CountryBoundariesGenerator generator = new CountryBoundariesGenerator();
+		CountryBoundariesGenerator generator = new CountryBoundariesGenerator(parallel);
 		generator.setProgressListener(new CountryBoundariesGenerator.ProgressListener()
 		{
 			volatile int currentProgress = 0;
