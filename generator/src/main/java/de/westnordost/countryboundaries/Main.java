@@ -6,15 +6,9 @@ import com.vividsolutions.jts.geom.GeometryCollection;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.StringReader;
-import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -79,20 +73,21 @@ public class Main
 			}
 		}
 
-		System.out.print("Generating index...");
+		System.out.println("Generating index...");
 
 		CountryBoundariesGenerator generator = new CountryBoundariesGenerator();
 		generator.setProgressListener(new CountryBoundariesGenerator.ProgressListener()
 		{
-			String percentDone = "";
+			volatile int currentProgress = 0;
 
 			@Override public void onProgress(float progress)
 			{
-				char[] chars = new char[percentDone.length()];
-				Arrays.fill(chars, '\b');
-				System.out.print(chars);
-				percentDone = "" + String.format(Locale.US, "%.1f", 100*progress) + "%";
-				System.out.print(percentDone);
+				int newProgress = (int) (progress * 1000);
+				if (currentProgress != newProgress) {
+					currentProgress = newProgress;
+					String percentDone = "Progress: " + String.format(Locale.US, "%.1f", 100 * progress) + "%\r";
+					System.out.print(percentDone);
+				}
 			}
 		});
 
