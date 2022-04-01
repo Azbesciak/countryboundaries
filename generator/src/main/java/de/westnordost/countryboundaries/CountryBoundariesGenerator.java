@@ -1,7 +1,7 @@
 package de.westnordost.countryboundaries;
 
-import com.vividsolutions.jts.geom.*;
-import com.vividsolutions.jts.index.strtree.STRtree;
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.index.strtree.STRtree;
 
 import java.util.ArrayList;
 import java.util.HashMap;

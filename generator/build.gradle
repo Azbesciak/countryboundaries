@@ -19,7 +19,7 @@ run {
 dependencies {
     implementation 'net.sf.kxml:kxml2:2.3.0'
     implementation 'org.json:json:20180813'
-    implementation 'com.vividsolutions:jts-core:1.14.0'
+    implementation 'org.locationtech.jts:jts-core:1.18.2'
 
     implementation project(':library')
 
